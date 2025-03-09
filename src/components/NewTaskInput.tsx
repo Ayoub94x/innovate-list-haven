@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Calendar, BrainCircuit, Gauge } from "lucide-react";
+import { Plus, Calendar, BrainCircuit, Gauge, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
@@ -10,9 +10,11 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { it } from "date-fns/locale";
 
 interface NewTaskInputProps {
   onAddTask: (taskTitle: string, dueDate: Date | null, category: string, priority: string, notes?: string) => void;
+  getAiSuggestion: () => string;
 }
 
 const categories = [
@@ -23,19 +25,14 @@ const priorities = [
   "Alta", "Media", "Bassa"
 ];
 
-// Simulazione di suggerimenti AI (in produzione questo verrebbe da un servizio AI)
-const aiSuggestions = [
-  "Ricordati di fare una pausa ogni 25 minuti di lavoro",
-  "Prova a completare prima le attività più importanti",
-  "Gli appuntamenti in mattinata sono spesso più produttivi",
-  "Raggruppa attività simili per aumentare l'efficienza",
-  "Dedica 10 minuti alla pianificazione della giornata",
-  "Programma del tempo libero tra le attività importanti"
-];
+const hours = Array.from({ length: 24 }, (_, i) => i);
+const minutes = [0, 15, 30, 45];
 
-const NewTaskInput: React.FC<NewTaskInputProps> = ({ onAddTask }) => {
+const NewTaskInput: React.FC<NewTaskInputProps> = ({ onAddTask, getAiSuggestion }) => {
   const [taskTitle, setTaskTitle] = useState("");
   const [dueDate, setDueDate] = useState<Date | null>(null);
+  const [dueHour, setDueHour] = useState<number>(9);
+  const [dueMinute, setDueMinute] = useState<number>(0);
   const [category, setCategory] = useState("Altro");
   const [priority, setPriority] = useState("Media");
   const [notes, setNotes] = useState("");
@@ -46,7 +43,15 @@ const NewTaskInput: React.FC<NewTaskInputProps> = ({ onAddTask }) => {
     e.preventDefault();
     
     if (taskTitle.trim()) {
-      onAddTask(taskTitle.trim(), dueDate, category, priority, notes);
+      let finalDueDate = dueDate;
+      
+      if (finalDueDate) {
+        // Impostiamo l'orario specifico selezionato
+        finalDueDate = new Date(finalDueDate);
+        finalDueDate.setHours(dueHour, dueMinute, 0, 0);
+      }
+      
+      onAddTask(taskTitle.trim(), finalDueDate, category, priority, notes);
       setTaskTitle("");
       setDueDate(null);
       setNotes("");
@@ -54,13 +59,12 @@ const NewTaskInput: React.FC<NewTaskInputProps> = ({ onAddTask }) => {
     }
   };
 
-  const getAiSuggestion = () => {
-    // In produzione, qui si chiamerebbe un'API AI
-    const randomSuggestion = aiSuggestions[Math.floor(Math.random() * aiSuggestions.length)];
-    setCurrentSuggestion(randomSuggestion);
+  const handleAiSuggestion = () => {
+    const suggestion = getAiSuggestion();
+    setCurrentSuggestion(suggestion);
     setShowAiSuggestion(true);
     toast.info("Suggerimento IA", {
-      description: randomSuggestion,
+      description: suggestion,
       icon: <BrainCircuit className="h-5 w-5" />
     });
   };
@@ -81,7 +85,7 @@ const NewTaskInput: React.FC<NewTaskInputProps> = ({ onAddTask }) => {
             type="button" 
             variant="outline" 
             size="icon" 
-            onClick={getAiSuggestion}
+            onClick={handleAiSuggestion}
             className="h-12 w-12 flex-shrink-0"
             title="Suggerimenti IA"
           >
@@ -109,7 +113,7 @@ const NewTaskInput: React.FC<NewTaskInputProps> = ({ onAddTask }) => {
                   )}
                 >
                   <Calendar className="mr-2 h-4 w-4" />
-                  {dueDate ? format(dueDate, "PPP") : <span>Data di scadenza</span>}
+                  {dueDate ? format(dueDate, "PPP", { locale: it }) : <span>Data di scadenza</span>}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
@@ -118,10 +122,42 @@ const NewTaskInput: React.FC<NewTaskInputProps> = ({ onAddTask }) => {
                   selected={dueDate || undefined}
                   onSelect={setDueDate}
                   initialFocus
+                  locale={it}
                   className="p-3 pointer-events-auto"
                 />
               </PopoverContent>
             </Popover>
+            
+            {dueDate && (
+              <div className="flex gap-2 items-center">
+                <Clock className="h-4 w-4 text-muted-foreground" />
+                <Select value={dueHour.toString()} onValueChange={(value) => setDueHour(parseInt(value))}>
+                  <SelectTrigger className="w-[80px]">
+                    <SelectValue placeholder="Ora" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {hours.map((hour) => (
+                      <SelectItem key={hour} value={hour.toString()}>
+                        {hour.toString().padStart(2, '0')}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <span>:</span>
+                <Select value={dueMinute.toString()} onValueChange={(value) => setDueMinute(parseInt(value))}>
+                  <SelectTrigger className="w-[80px]">
+                    <SelectValue placeholder="Min" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {minutes.map((minute) => (
+                      <SelectItem key={minute} value={minute.toString()}>
+                        {minute.toString().padStart(2, '0')}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             
             <Select value={category} onValueChange={setCategory}>
               <SelectTrigger className="w-[180px]">

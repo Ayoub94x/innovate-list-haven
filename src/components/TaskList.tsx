@@ -7,12 +7,14 @@ interface TaskListProps {
   tasks: Task[];
   onDeleteTask: (id: string) => void;
   onToggleComplete: (id: string) => void;
+  onUpdateTimeSpent?: (id: string, minutes: number) => void;
 }
 
 const TaskList: React.FC<TaskListProps> = ({
   tasks,
   onDeleteTask,
   onToggleComplete,
+  onUpdateTimeSpent,
 }) => {
   const completedTasks = tasks.filter((task) => task.completed);
   const pendingTasks = tasks.filter((task) => !task.completed);
@@ -41,6 +43,7 @@ const TaskList: React.FC<TaskListProps> = ({
                 task={task}
                 onDelete={onDeleteTask}
                 onToggleComplete={onToggleComplete}
+                onUpdateTimeSpent={onUpdateTimeSpent}
               />
             ))}
           </div>
@@ -59,6 +62,7 @@ const TaskList: React.FC<TaskListProps> = ({
                 task={task}
                 onDelete={onDeleteTask}
                 onToggleComplete={onToggleComplete}
+                onUpdateTimeSpent={onUpdateTimeSpent}
               />
             ))}
           </div>

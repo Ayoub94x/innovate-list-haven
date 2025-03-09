@@ -20,6 +20,7 @@ export interface Task {
   category: string;
   priority: string;
   notes?: string;
+  timeSpent?: number; // Tempo in minuti speso sull'attività
 }
 
 const defaultTasks = [
@@ -70,6 +71,16 @@ const defaultTasks = [
   }
 ];
 
+// Simulazione di suggerimenti AI (in produzione questo verrebbe da un servizio AI)
+const aiSuggestions = [
+  "Ricordati di fare una pausa ogni 25 minuti di lavoro",
+  "Prova a completare prima le attività più importanti",
+  "Gli appuntamenti in mattinata sono spesso più produttivi",
+  "Raggruppa attività simili per aumentare l'efficienza",
+  "Dedica 10 minuti alla pianificazione della giornata",
+  "Programma del tempo libero tra le attività importanti"
+];
+
 const Home: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -81,7 +92,8 @@ const Home: React.FC = () => {
           ...task,
           createdAt: new Date(task.createdAt),
           dueDate: task.dueDate ? new Date(task.dueDate) : null,
-          priority: task.priority || "Media" // Compatibilità con vecchi dati
+          priority: task.priority || "Media", // Compatibilità con vecchi dati
+          timeSpent: task.timeSpent || 0
         }));
       } catch (e) {
         return defaultTasks;
@@ -109,7 +121,8 @@ const Home: React.FC = () => {
       dueDate,
       category,
       priority,
-      notes
+      notes,
+      timeSpent: 0
     };
     setTasks((prevTasks) => [newTask, ...prevTasks]);
   };
@@ -124,6 +137,19 @@ const Home: React.FC = () => {
         task.id === id ? { ...task, completed: !task.completed } : task
       )
     );
+  };
+
+  const updateTimeSpent = (id: string, minutes: number) => {
+    setTasks((prevTasks) =>
+      prevTasks.map((task) =>
+        task.id === id ? { ...task, timeSpent: (task.timeSpent || 0) + minutes } : task
+      )
+    );
+  };
+
+  const getAiSuggestion = () => {
+    // In produzione, qui si chiamerebbe un'API AI
+    return aiSuggestions[Math.floor(Math.random() * aiSuggestions.length)];
   };
 
   const completedCount = tasks.filter((task) => task.completed).length;
@@ -167,7 +193,7 @@ const Home: React.FC = () => {
           </TabsList>
           
           <TabsContent value="tasks" className="space-y-6">
-            <NewTaskInput onAddTask={addTask} />
+            <NewTaskInput onAddTask={addTask} getAiSuggestion={getAiSuggestion} />
             
             <DailyTasks 
               tasks={tasks}
@@ -179,7 +205,8 @@ const Home: React.FC = () => {
               <TaskList 
                 tasks={tasks} 
                 onDeleteTask={deleteTask} 
-                onToggleComplete={toggleComplete} 
+                onToggleComplete={toggleComplete}
+                onUpdateTimeSpent={updateTimeSpent}
               />
             </div>
           </TabsContent>

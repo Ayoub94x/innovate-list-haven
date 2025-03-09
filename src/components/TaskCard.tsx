@@ -1,6 +1,6 @@
 
-import React, { useState } from "react";
-import { Check, Trash2, Clock, Target, AlertTriangle, Calendar, Gauge, FileText } from "lucide-react";
+import React, { useState, useEffect, useRef } from "react";
+import { Check, Trash2, Clock, Target, AlertTriangle, Calendar, Gauge, FileText, PlayCircle, PauseCircle, Trophy, Award } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Task } from "@/pages/Home";
 import { toast } from "sonner";
@@ -12,20 +12,27 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { Button } from "@/components/ui/button";
 
 interface TaskCardProps {
   task: Task;
   onDelete: (id: string) => void;
   onToggleComplete: (id: string) => void;
+  onUpdateTimeSpent?: (id: string, minutes: number) => void;
 }
 
 const TaskCard: React.FC<TaskCardProps> = ({
   task,
   onDelete,
   onToggleComplete,
+  onUpdateTimeSpent,
 }) => {
   const [isHovered, setIsHovered] = useState(false);
   const [showNotes, setShowNotes] = useState(false);
+  const [isTracking, setIsTracking] = useState(false);
+  const [elapsedTime, setElapsedTime] = useState(0);
+  const trackingInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+  const trackingStartTime = useRef<number | null>(null);
 
   const handleDelete = () => {
     onDelete(task.id);
@@ -33,15 +40,98 @@ const TaskCard: React.FC<TaskCardProps> = ({
   };
 
   const handleToggleComplete = () => {
+    // Interrompiamo il tracciamento se è attivo
+    if (isTracking) {
+      stopTracking();
+    }
+    
     onToggleComplete(task.id);
     if (!task.completed) {
       toast.success("Obiettivo raggiunto! 🎉", {
-        icon: "🏆",
+        icon: <Trophy className="h-5 w-5 text-amber-500" />,
       });
     } else {
       toast.success("Attività da completare");
     }
   };
+
+  // Funzioni per il tracciamento del tempo
+  const startTracking = () => {
+    if (!isTracking && !task.completed) {
+      setIsTracking(true);
+      trackingStartTime.current = Date.now();
+      
+      trackingInterval.current = setInterval(() => {
+        if (trackingStartTime.current) {
+          const seconds = Math.floor((Date.now() - trackingStartTime.current) / 1000);
+          setElapsedTime(seconds);
+        }
+      }, 1000);
+      
+      toast.info("Tracciamento tempo avviato", {
+        description: `Stai lavorando su: ${task.title}`,
+        icon: <PlayCircle className="h-5 w-5 text-green-500" />
+      });
+    }
+  };
+  
+  const stopTracking = () => {
+    if (isTracking && trackingInterval.current && trackingStartTime.current) {
+      clearInterval(trackingInterval.current);
+      const minutes = Math.floor((Date.now() - trackingStartTime.current) / 60000);
+      
+      if (minutes > 0 && onUpdateTimeSpent) {
+        onUpdateTimeSpent(task.id, minutes);
+      }
+      
+      setIsTracking(false);
+      setElapsedTime(0);
+      trackingStartTime.current = null;
+      
+      toast.info("Tracciamento tempo fermato", {
+        description: `Hai lavorato su "${task.title}" per ${formatTime(minutes * 60)}`,
+        icon: <PauseCircle className="h-5 w-5 text-amber-500" />
+      });
+    }
+  };
+  
+  // Formattazione del tempo
+  const formatTime = (seconds: number) => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    
+    if (hours > 0) {
+      return `${hours}h ${minutes}m ${secs}s`;
+    } else if (minutes > 0) {
+      return `${minutes}m ${secs}s`;
+    } else {
+      return `${secs}s`;
+    }
+  };
+  
+  // Formattazione del tempo speso totale
+  const formatTimeSpent = (minutes: number | undefined) => {
+    if (!minutes) return "0m";
+    
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    
+    if (hours > 0) {
+      return `${hours}h ${mins}m`;
+    } else {
+      return `${mins}m`;
+    }
+  };
+
+  // Pulizia dell'intervallo quando il componente viene smontato
+  useEffect(() => {
+    return () => {
+      if (trackingInterval.current) {
+        clearInterval(trackingInterval.current);
+      }
+    };
+  }, []);
 
   // Format the date
   const formatDate = (date: Date) => {
@@ -59,7 +149,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
   // Status icon logic
   const getStatusIcon = () => {
     if (task.completed) {
-      return <Target className="h-5 w-5 text-green-500" />;
+      return <Trophy className="h-5 w-5 text-amber-500" />;
     } else if (isOverdue) {
       return <AlertTriangle className="h-5 w-5 text-amber-500" />;
     }
@@ -136,6 +226,18 @@ const TaskCard: React.FC<TaskCardProps> = ({
                 <Gauge className="h-3 w-3" />
                 {task.priority}
               </Badge>
+
+              {(task.timeSpent || isTracking) && (
+                <Badge 
+                  variant={isTracking ? "success" : "outline"} 
+                  className="text-xs flex items-center gap-1"
+                >
+                  <Clock className="h-3 w-3" />
+                  {isTracking 
+                    ? `In corso: ${formatTime(elapsedTime)}` 
+                    : `Tempo: ${formatTimeSpent(task.timeSpent)}`}
+                </Badge>
+              )}
             </div>
             
             <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
@@ -154,6 +256,33 @@ const TaskCard: React.FC<TaskCardProps> = ({
                 </div>
               )}
             </div>
+
+            {/* Time tracking buttons */}
+            {!task.completed && (
+              <div className="mt-2 flex items-center gap-2">
+                {isTracking ? (
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    className="h-8 text-xs bg-red-50 hover:bg-red-100 border-red-200 text-red-600"
+                    onClick={stopTracking}
+                  >
+                    <PauseCircle className="h-3.5 w-3.5 mr-1" />
+                    Ferma tracciamento
+                  </Button>
+                ) : (
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    className="h-8 text-xs bg-green-50 hover:bg-green-100 border-green-200 text-green-600"
+                    onClick={startTracking}
+                  >
+                    <PlayCircle className="h-3.5 w-3.5 mr-1" />
+                    Traccia tempo
+                  </Button>
+                )}
+              </div>
+            )}
 
             {task.notes && (
               <div className="mt-2">
