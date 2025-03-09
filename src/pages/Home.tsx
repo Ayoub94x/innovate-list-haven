@@ -6,13 +6,62 @@ import Navbar from "@/components/Navbar";
 import NewTaskInput from "@/components/NewTaskInput";
 import TaskList from "@/components/TaskList";
 import { CheckSquare } from "lucide-react";
+import TaskStats from "@/components/TaskStats";
+import TaskCalendar from "@/components/TaskCalendar";
+import DailyTasks from "@/components/DailyTasks";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export interface Task {
   id: string;
   title: string;
   completed: boolean;
   createdAt: Date;
+  dueDate: Date | null;
+  category: string;
 }
+
+const defaultTasks = [
+  {
+    id: "1",
+    title: "Esercizio fisico mattutino",
+    completed: false,
+    createdAt: new Date(),
+    dueDate: new Date(new Date().setHours(10, 0, 0, 0)),
+    category: "Salute"
+  },
+  {
+    id: "2",
+    title: "Riunione di lavoro",
+    completed: false,
+    createdAt: new Date(),
+    dueDate: new Date(new Date().setHours(14, 30, 0, 0)),
+    category: "Lavoro"
+  },
+  {
+    id: "3",
+    title: "Studiare Italiano",
+    completed: false,
+    createdAt: new Date(),
+    dueDate: new Date(new Date().setHours(18, 0, 0, 0)),
+    category: "Formazione"
+  },
+  {
+    id: "4",
+    title: "Chiamare i genitori",
+    completed: false,
+    createdAt: new Date(),
+    dueDate: new Date(new Date().setHours(20, 0, 0, 0)),
+    category: "Personale"
+  },
+  {
+    id: "5",
+    title: "Meditazione serale",
+    completed: false,
+    createdAt: new Date(),
+    dueDate: new Date(new Date().setHours(22, 0, 0, 0)),
+    category: "Benessere"
+  }
+];
 
 const Home: React.FC = () => {
   const { user } = useAuth();
@@ -21,16 +70,16 @@ const Home: React.FC = () => {
     const savedTasks = localStorage.getItem("tasks");
     if (savedTasks) {
       try {
-        // Convert string dates back to Date objects
         return JSON.parse(savedTasks).map((task: any) => ({
           ...task,
           createdAt: new Date(task.createdAt),
+          dueDate: task.dueDate ? new Date(task.dueDate) : null
         }));
       } catch (e) {
-        return [];
+        return defaultTasks;
       }
     }
-    return [];
+    return defaultTasks;
   });
 
   useEffect(() => {
@@ -43,12 +92,14 @@ const Home: React.FC = () => {
     localStorage.setItem("tasks", JSON.stringify(tasks));
   }, [tasks]);
 
-  const addTask = (title: string) => {
+  const addTask = (title: string, dueDate: Date | null, category: string) => {
     const newTask: Task = {
       id: Date.now().toString(),
       title,
       completed: false,
       createdAt: new Date(),
+      dueDate,
+      category
     };
     setTasks((prevTasks) => [newTask, ...prevTasks]);
   };
@@ -75,7 +126,7 @@ const Home: React.FC = () => {
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-blue-50 to-white">
       <Navbar />
       
-      <main className="flex-1 container max-w-3xl mx-auto px-4 py-6 md:py-10">
+      <main className="flex-1 container max-w-5xl mx-auto px-4 py-6 md:py-10">
         <div className="glass-card p-8 mb-8 text-center">
           <div className="flex justify-center mb-4">
             <CheckSquare className="h-10 w-10 text-primary" />
@@ -98,17 +149,39 @@ const Home: React.FC = () => {
           </p>
         </div>
 
-        <div className="space-y-6">
-          <NewTaskInput onAddTask={addTask} />
+        <Tabs defaultValue="tasks" className="space-y-6">
+          <TabsList className="grid grid-cols-3 mb-6">
+            <TabsTrigger value="tasks">Attività</TabsTrigger>
+            <TabsTrigger value="stats">Statistiche</TabsTrigger>
+            <TabsTrigger value="calendar">Calendario</TabsTrigger>
+          </TabsList>
           
-          <div className="mt-6">
-            <TaskList 
-              tasks={tasks} 
-              onDeleteTask={deleteTask} 
-              onToggleComplete={toggleComplete} 
+          <TabsContent value="tasks" className="space-y-6">
+            <NewTaskInput onAddTask={addTask} />
+            
+            <DailyTasks 
+              tasks={tasks}
+              onDeleteTask={deleteTask}
+              onToggleComplete={toggleComplete}
             />
-          </div>
-        </div>
+            
+            <div className="mt-6">
+              <TaskList 
+                tasks={tasks} 
+                onDeleteTask={deleteTask} 
+                onToggleComplete={toggleComplete} 
+              />
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="stats">
+            <TaskStats tasks={tasks} />
+          </TabsContent>
+          
+          <TabsContent value="calendar">
+            <TaskCalendar tasks={tasks} onToggleComplete={toggleComplete} />
+          </TabsContent>
+        </Tabs>
       </main>
     </div>
   );
