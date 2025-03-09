@@ -1,11 +1,10 @@
-
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import Navbar from "@/components/Navbar";
 import NewTaskInput from "@/components/NewTaskInput";
 import TaskList from "@/components/TaskList";
-import { CheckSquare } from "lucide-react";
+import { CheckSquare, Trophy, Award, Star, Brain, Heart } from "lucide-react";
 import TaskStats from "@/components/TaskStats";
 import TaskCalendar from "@/components/TaskCalendar";
 import DailyTasks from "@/components/DailyTasks";
@@ -21,7 +20,32 @@ export interface Task {
   priority: string;
   notes?: string;
   timeSpent?: number; // Tempo in minuti speso sull'attività
+  level?: number; // Livello di gamification
+  achievements?: string[]; // Traguardi raggiunti
 }
+
+// Simulazione di suggerimenti AI (in produzione questo verrebbe da un servizio AI)
+const aiSuggestions = [
+  "Ricordati di fare una pausa ogni 25 minuti di lavoro",
+  "Prova a completare prima le attività più importanti",
+  "Gli appuntamenti in mattinata sono spesso più produttivi",
+  "Raggruppa attività simili per aumentare l'efficienza",
+  "Dedica 10 minuti alla pianificazione della giornata",
+  "Programma del tempo libero tra le attività importanti",
+  "Le attività più difficili dovrebbero essere programmate quando sei più energico",
+  "Utilizzare la tecnica Pomodoro può aumentare la tua concentrazione",
+  "Ricorda di idratarsi durante la giornata di lavoro",
+  "Una breve meditazione può aiutarti a ritrovare il focus"
+];
+
+// Simulazione di achievement badges
+export const badges = [
+  { id: "early_bird", name: "Early Bird", icon: <Star className="h-4 w-4" />, description: "Completa 3 attività prima delle 10:00" },
+  { id: "focus_master", name: "Focus Master", icon: <Brain className="h-4 w-4" />, description: "Traccia 2 ore consecutive di lavoro" },
+  { id: "deadline_hero", name: "Deadline Hero", icon: <Trophy className="h-4 w-4" />, description: "Completa 5 attività entro la scadenza" },
+  { id: "wellness_guru", name: "Wellness Guru", icon: <Heart className="h-4 w-4" />, description: "Fai 3 pause programmate in un giorno" },
+  { id: "achievement_hunter", name: "Achievement Hunter", icon: <Award className="h-4 w-4" />, description: "Ottieni 3 badge diversi" }
+];
 
 const defaultTasks = [
   {
@@ -71,16 +95,6 @@ const defaultTasks = [
   }
 ];
 
-// Simulazione di suggerimenti AI (in produzione questo verrebbe da un servizio AI)
-const aiSuggestions = [
-  "Ricordati di fare una pausa ogni 25 minuti di lavoro",
-  "Prova a completare prima le attività più importanti",
-  "Gli appuntamenti in mattinata sono spesso più produttivi",
-  "Raggruppa attività simili per aumentare l'efficienza",
-  "Dedica 10 minuti alla pianificazione della giornata",
-  "Programma del tempo libero tra le attività importanti"
-];
-
 const Home: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -92,14 +106,21 @@ const Home: React.FC = () => {
           ...task,
           createdAt: new Date(task.createdAt),
           dueDate: task.dueDate ? new Date(task.dueDate) : null,
-          priority: task.priority || "Media", // Compatibilità con vecchi dati
-          timeSpent: task.timeSpent || 0
+          priority: task.priority || "Media",
+          timeSpent: task.timeSpent || 0,
+          level: 1,
+          achievements: []
         }));
       } catch (e) {
         return defaultTasks;
       }
     }
     return defaultTasks;
+  });
+
+  const [userAchievements, setUserAchievements] = useState<string[]>(() => {
+    const savedAchievements = localStorage.getItem("achievements");
+    return savedAchievements ? JSON.parse(savedAchievements) : [];
   });
 
   useEffect(() => {
@@ -112,6 +133,14 @@ const Home: React.FC = () => {
     localStorage.setItem("tasks", JSON.stringify(tasks));
   }, [tasks]);
 
+  useEffect(() => {
+    localStorage.setItem("achievements", JSON.stringify(userAchievements));
+  }, [userAchievements]);
+
+  useEffect(() => {
+    checkForAchievements();
+  }, [tasks]);
+
   const addTask = (title: string, dueDate: Date | null, category: string, priority: string, notes?: string) => {
     const newTask: Task = {
       id: Date.now().toString(),
@@ -122,7 +151,9 @@ const Home: React.FC = () => {
       category,
       priority,
       notes,
-      timeSpent: 0
+      timeSpent: 0,
+      level: 1,
+      achievements: []
     };
     setTasks((prevTasks) => [newTask, ...prevTasks]);
   };
@@ -133,22 +164,100 @@ const Home: React.FC = () => {
 
   const toggleComplete = (id: string) => {
     setTasks((prevTasks) =>
-      prevTasks.map((task) =>
-        task.id === id ? { ...task, completed: !task.completed } : task
-      )
+      prevTasks.map((task) => {
+        if (task.id === id) {
+          if (!task.completed && task.dueDate) {
+            const now = new Date();
+            const dueDate = new Date(task.dueDate);
+            
+            if (now < dueDate) {
+              checkDeadlineHeroAchievement();
+            }
+          }
+          return { ...task, completed: !task.completed };
+        }
+        return task;
+      })
     );
   };
 
   const updateTimeSpent = (id: string, minutes: number) => {
-    setTasks((prevTasks) =>
-      prevTasks.map((task) =>
+    setTasks((prevTasks) => {
+      const updatedTasks = prevTasks.map((task) =>
         task.id === id ? { ...task, timeSpent: (task.timeSpent || 0) + minutes } : task
-      )
-    );
+      );
+      
+      if (minutes >= 60) {
+        checkFocusMasterAchievement();
+      }
+      
+      return updatedTasks;
+    });
+  };
+
+  const checkForAchievements = () => {
+    checkEarlyBirdAchievement();
+    checkDeadlineHeroAchievement();
+    checkAchievementHunterAchievement();
+  };
+
+  const unlockAchievement = (achievementId: string) => {
+    if (!userAchievements.includes(achievementId)) {
+      const achievement = badges.find(badge => badge.id === achievementId);
+      setUserAchievements(prev => [...prev, achievementId]);
+      
+      if (achievement) {
+        toast.success(`🎉 Nuovo badge sbloccato: ${achievement.name}`, {
+          description: achievement.description,
+          icon: achievement.icon,
+          duration: 5000,
+        });
+      }
+    }
+  };
+
+  const checkEarlyBirdAchievement = () => {
+    const now = new Date();
+    const morningTasks = tasks.filter(task => {
+      return task.completed && task.createdAt && 
+      new Date(task.createdAt).getHours() < 10;
+    });
+    
+    if (morningTasks.length >= 3 && !userAchievements.includes("early_bird")) {
+      unlockAchievement("early_bird");
+    }
+  };
+
+  const checkFocusMasterAchievement = () => {
+    const focusedTasks = tasks.filter(task => (task.timeSpent || 0) >= 120);
+    
+    if (focusedTasks.length > 0 && !userAchievements.includes("focus_master")) {
+      unlockAchievement("focus_master");
+    }
+  };
+
+  const checkDeadlineHeroAchievement = () => {
+    const onTimeCompletions = tasks.filter(task => {
+      if (!task.completed || !task.dueDate) return false;
+      
+      const completionDate = task.createdAt;
+      const dueDate = new Date(task.dueDate);
+      
+      return completionDate <= dueDate;
+    });
+    
+    if (onTimeCompletions.length >= 5 && !userAchievements.includes("deadline_hero")) {
+      unlockAchievement("deadline_hero");
+    }
+  };
+
+  const checkAchievementHunterAchievement = () => {
+    if (userAchievements.length >= 3 && !userAchievements.includes("achievement_hunter")) {
+      unlockAchievement("achievement_hunter");
+    }
   };
 
   const getAiSuggestion = () => {
-    // In produzione, qui si chiamerebbe un'API AI
     return aiSuggestions[Math.floor(Math.random() * aiSuggestions.length)];
   };
 
@@ -163,7 +272,7 @@ const Home: React.FC = () => {
       <Navbar />
       
       <main className="flex-1 container max-w-5xl mx-auto px-4 py-6 md:py-10">
-        <div className="glass-card p-8 mb-8 text-center">
+        <div className="glass-card p-8 mb-8 text-center bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 shadow-lg">
           <div className="flex justify-center mb-4">
             <CheckSquare className="h-10 w-10 text-primary" />
           </div>
@@ -183,6 +292,20 @@ const Home: React.FC = () => {
           <p className="text-sm text-muted-foreground">
             {completedCount} di {totalCount} attività completate ({percent}%)
           </p>
+          
+          {userAchievements.length > 0 && (
+            <div className="mt-4 flex flex-wrap justify-center gap-2">
+              {userAchievements.map(id => {
+                const badge = badges.find(b => b.id === id);
+                return badge ? (
+                  <div key={id} className="flex items-center gap-1 bg-amber-50 text-amber-800 px-2 py-1 rounded-full text-xs border border-amber-200">
+                    {badge.icon}
+                    <span>{badge.name}</span>
+                  </div>
+                ) : null;
+              })}
+            </div>
+          )}
         </div>
 
         <Tabs defaultValue="tasks" className="space-y-6">
@@ -212,7 +335,7 @@ const Home: React.FC = () => {
           </TabsContent>
           
           <TabsContent value="stats">
-            <TaskStats tasks={tasks} />
+            <TaskStats tasks={tasks} badges={badges} userAchievements={userAchievements} />
           </TabsContent>
           
           <TabsContent value="calendar">

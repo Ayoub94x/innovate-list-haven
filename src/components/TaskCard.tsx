@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect, useRef } from "react";
-import { Check, Trash2, Clock, Target, AlertTriangle, Calendar, Gauge, FileText, PlayCircle, PauseCircle, Trophy, Award } from "lucide-react";
+import { Check, Trash2, Clock, Target, AlertTriangle, Calendar, Gauge, FileText, PlayCircle, PauseCircle, Trophy, Award, Focus, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Task } from "@/pages/Home";
 import { toast } from "sonner";
@@ -19,6 +18,7 @@ interface TaskCardProps {
   onDelete: (id: string) => void;
   onToggleComplete: (id: string) => void;
   onUpdateTimeSpent?: (id: string, minutes: number) => void;
+  focusMode?: boolean;
 }
 
 const TaskCard: React.FC<TaskCardProps> = ({
@@ -26,6 +26,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
   onDelete,
   onToggleComplete,
   onUpdateTimeSpent,
+  focusMode = false,
 }) => {
   const [isHovered, setIsHovered] = useState(false);
   const [showNotes, setShowNotes] = useState(false);
@@ -33,6 +34,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
   const [elapsedTime, setElapsedTime] = useState(0);
   const trackingInterval = useRef<ReturnType<typeof setInterval> | null>(null);
   const trackingStartTime = useRef<number | null>(null);
+  const [showConfetti, setShowConfetti] = useState(false);
 
   const handleDelete = () => {
     onDelete(task.id);
@@ -40,22 +42,25 @@ const TaskCard: React.FC<TaskCardProps> = ({
   };
 
   const handleToggleComplete = () => {
-    // Interrompiamo il tracciamento se è attivo
     if (isTracking) {
       stopTracking();
     }
     
     onToggleComplete(task.id);
     if (!task.completed) {
+      setShowConfetti(true);
       toast.success("Obiettivo raggiunto! 🎉", {
         icon: <Trophy className="h-5 w-5 text-amber-500" />,
       });
+      
+      setTimeout(() => {
+        setShowConfetti(false);
+      }, 3000);
     } else {
       toast.success("Attività da completare");
     }
   };
 
-  // Funzioni per il tracciamento del tempo
   const startTracking = () => {
     if (!isTracking && !task.completed) {
       setIsTracking(true);
@@ -95,7 +100,6 @@ const TaskCard: React.FC<TaskCardProps> = ({
     }
   };
   
-  // Formattazione del tempo
   const formatTime = (seconds: number) => {
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
@@ -110,7 +114,6 @@ const TaskCard: React.FC<TaskCardProps> = ({
     }
   };
   
-  // Formattazione del tempo speso totale
   const formatTimeSpent = (minutes: number | undefined) => {
     if (!minutes) return "0m";
     
@@ -124,7 +127,6 @@ const TaskCard: React.FC<TaskCardProps> = ({
     }
   };
 
-  // Pulizia dell'intervallo quando il componente viene smontato
   useEffect(() => {
     return () => {
       if (trackingInterval.current) {
@@ -133,7 +135,6 @@ const TaskCard: React.FC<TaskCardProps> = ({
     };
   }, []);
 
-  // Format the date
   const formatDate = (date: Date) => {
     return new Intl.DateTimeFormat("it-IT", {
       day: "numeric",
@@ -143,10 +144,8 @@ const TaskCard: React.FC<TaskCardProps> = ({
     }).format(date);
   };
 
-  // Check if task is overdue (past due date and not completed)
   const isOverdue = task.dueDate && !task.completed && isAfter(new Date(), task.dueDate);
 
-  // Status icon logic
   const getStatusIcon = () => {
     if (task.completed) {
       return <Trophy className="h-5 w-5 text-amber-500" />;
@@ -156,7 +155,6 @@ const TaskCard: React.FC<TaskCardProps> = ({
     return null;
   };
 
-  // Priority color logic
   const getPriorityColor = () => {
     switch (task.priority) {
       case "Alta":
@@ -170,16 +168,40 @@ const TaskCard: React.FC<TaskCardProps> = ({
     }
   };
 
+  const getCardStyles = () => {
+    let styles = cn(
+      "group glass-card p-4 transition-all duration-300 hover:shadow-md animate-scale-in relative overflow-hidden",
+      task.completed && "bg-muted/50",
+      isOverdue && !task.completed && "border-amber-300 border"
+    );
+    
+    if (focusMode && !task.completed) {
+      if (task.priority === "Alta") {
+        styles += " bg-red-50";
+      } else if (task.priority === "Media") {
+        styles += " bg-amber-50";
+      }
+    }
+    
+    return styles;
+  };
+
   return (
     <div
-      className={cn(
-        "group glass-card p-4 transition-all duration-300 hover:shadow-md animate-scale-in",
-        task.completed && "bg-muted/50",
-        isOverdue && !task.completed && "border-amber-300 border"
-      )}
+      className={getCardStyles()}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
+      {showConfetti && (
+        <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-10">
+          <div className="absolute -left-2 top-0 animate-slide-up">✨</div>
+          <div className="absolute left-1/4 top-0 animate-slide-up" style={{ animationDelay: "0.1s" }}>🎉</div>
+          <div className="absolute left-1/2 top-0 animate-slide-up" style={{ animationDelay: "0.2s" }}>🏆</div>
+          <div className="absolute left-3/4 top-0 animate-slide-up" style={{ animationDelay: "0.3s" }}>🌟</div>
+          <div className="absolute -right-2 top-0 animate-slide-up" style={{ animationDelay: "0.4s" }}>✨</div>
+        </div>
+      )}
+
       <div className="flex items-start justify-between">
         <div className="flex items-start space-x-4">
           <button
@@ -207,6 +229,10 @@ const TaskCard: React.FC<TaskCardProps> = ({
                 {task.title}
               </h3>
               {getStatusIcon()}
+              
+              {focusMode && !task.completed && task.priority === "Alta" && (
+                <Focus className="h-4 w-4 text-red-500 animate-pulse" />
+              )}
             </div>
             
             <div className="flex flex-wrap gap-2 mt-2">
@@ -238,6 +264,13 @@ const TaskCard: React.FC<TaskCardProps> = ({
                     : `Tempo: ${formatTimeSpent(task.timeSpent)}`}
                 </Badge>
               )}
+              
+              {task.completed && (
+                <Badge variant="success" className="text-xs flex items-center gap-1">
+                  <Star className="h-3 w-3" />
+                  +1 punto
+                </Badge>
+              )}
             </div>
             
             <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
@@ -257,7 +290,6 @@ const TaskCard: React.FC<TaskCardProps> = ({
               )}
             </div>
 
-            {/* Time tracking buttons */}
             {!task.completed && (
               <div className="mt-2 flex items-center gap-2">
                 {isTracking ? (
