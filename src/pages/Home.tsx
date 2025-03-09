@@ -18,6 +18,8 @@ export interface Task {
   createdAt: Date;
   dueDate: Date | null;
   category: string;
+  priority: string;
+  notes?: string;
 }
 
 const defaultTasks = [
@@ -27,7 +29,8 @@ const defaultTasks = [
     completed: false,
     createdAt: new Date(),
     dueDate: new Date(new Date().setHours(10, 0, 0, 0)),
-    category: "Salute"
+    category: "Salute",
+    priority: "Alta"
   },
   {
     id: "2",
@@ -35,7 +38,8 @@ const defaultTasks = [
     completed: false,
     createdAt: new Date(),
     dueDate: new Date(new Date().setHours(14, 30, 0, 0)),
-    category: "Lavoro"
+    category: "Lavoro",
+    priority: "Media"
   },
   {
     id: "3",
@@ -43,7 +47,8 @@ const defaultTasks = [
     completed: false,
     createdAt: new Date(),
     dueDate: new Date(new Date().setHours(18, 0, 0, 0)),
-    category: "Formazione"
+    category: "Formazione",
+    priority: "Bassa"
   },
   {
     id: "4",
@@ -51,7 +56,8 @@ const defaultTasks = [
     completed: false,
     createdAt: new Date(),
     dueDate: new Date(new Date().setHours(20, 0, 0, 0)),
-    category: "Personale"
+    category: "Personale",
+    priority: "Media"
   },
   {
     id: "5",
@@ -59,7 +65,8 @@ const defaultTasks = [
     completed: false,
     createdAt: new Date(),
     dueDate: new Date(new Date().setHours(22, 0, 0, 0)),
-    category: "Benessere"
+    category: "Benessere",
+    priority: "Bassa"
   }
 ];
 
@@ -73,7 +80,8 @@ const Home: React.FC = () => {
         return JSON.parse(savedTasks).map((task: any) => ({
           ...task,
           createdAt: new Date(task.createdAt),
-          dueDate: task.dueDate ? new Date(task.dueDate) : null
+          dueDate: task.dueDate ? new Date(task.dueDate) : null,
+          priority: task.priority || "Media" // Compatibilità con vecchi dati
         }));
       } catch (e) {
         return defaultTasks;
@@ -92,14 +100,16 @@ const Home: React.FC = () => {
     localStorage.setItem("tasks", JSON.stringify(tasks));
   }, [tasks]);
 
-  const addTask = (title: string, dueDate: Date | null, category: string) => {
+  const addTask = (title: string, dueDate: Date | null, category: string, priority: string, notes?: string) => {
     const newTask: Task = {
       id: Date.now().toString(),
       title,
       completed: false,
       createdAt: new Date(),
       dueDate,
-      category
+      category,
+      priority,
+      notes
     };
     setTasks((prevTasks) => [newTask, ...prevTasks]);
   };

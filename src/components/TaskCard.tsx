@@ -1,11 +1,17 @@
 
 import React, { useState } from "react";
-import { Check, Trash2, Clock, Target, AlertTriangle, Calendar } from "lucide-react";
+import { Check, Trash2, Clock, Target, AlertTriangle, Calendar, Gauge, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Task } from "@/pages/Home";
 import { toast } from "sonner";
 import { format, isAfter } from "date-fns";
 import { Badge } from "@/components/ui/badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface TaskCardProps {
   task: Task;
@@ -19,6 +25,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
   onToggleComplete,
 }) => {
   const [isHovered, setIsHovered] = useState(false);
+  const [showNotes, setShowNotes] = useState(false);
 
   const handleDelete = () => {
     onDelete(task.id);
@@ -57,6 +64,20 @@ const TaskCard: React.FC<TaskCardProps> = ({
       return <AlertTriangle className="h-5 w-5 text-amber-500" />;
     }
     return null;
+  };
+
+  // Priority color logic
+  const getPriorityColor = () => {
+    switch (task.priority) {
+      case "Alta":
+        return "text-red-500 border-red-300";
+      case "Media":
+        return "text-amber-500 border-amber-300";
+      case "Bassa":
+        return "text-green-500 border-green-300";
+      default:
+        return "text-muted-foreground border-muted";
+    }
   };
 
   return (
@@ -98,11 +119,24 @@ const TaskCard: React.FC<TaskCardProps> = ({
               {getStatusIcon()}
             </div>
             
-            {task.category && (
-              <Badge variant="outline" className="mt-2 text-xs">
-                {task.category}
+            <div className="flex flex-wrap gap-2 mt-2">
+              {task.category && (
+                <Badge variant="outline" className="text-xs">
+                  {task.category}
+                </Badge>
+              )}
+              
+              <Badge 
+                variant="outline" 
+                className={cn(
+                  "text-xs flex items-center gap-1",
+                  getPriorityColor()
+                )}
+              >
+                <Gauge className="h-3 w-3" />
+                {task.priority}
               </Badge>
-            )}
+            </div>
             
             <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
               <div className="flex items-center">
@@ -120,18 +154,44 @@ const TaskCard: React.FC<TaskCardProps> = ({
                 </div>
               )}
             </div>
+
+            {task.notes && (
+              <div className="mt-2">
+                <button 
+                  onClick={() => setShowNotes(!showNotes)}
+                  className="flex items-center text-xs text-primary hover:underline"
+                >
+                  <FileText className="mr-1 h-3 w-3" />
+                  {showNotes ? "Nascondi note" : "Mostra note"}
+                </button>
+                {showNotes && (
+                  <div className="mt-2 text-sm p-2 bg-background/50 rounded-md">
+                    {task.notes}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
-        <button
-          onClick={handleDelete}
-          className={cn(
-            "text-muted-foreground/60 hover:text-destructive transition-all duration-200 h-8 w-8 rounded-full flex items-center justify-center",
-            isHovered ? "opacity-100" : "opacity-0"
-          )}
-        >
-          <Trash2 className="h-4 w-4" />
-        </button>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={handleDelete}
+                className={cn(
+                  "text-muted-foreground/60 hover:text-destructive transition-all duration-200 h-8 w-8 rounded-full flex items-center justify-center",
+                  isHovered ? "opacity-100" : "opacity-0"
+                )}
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Elimina attività</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </div>
     </div>
   );
